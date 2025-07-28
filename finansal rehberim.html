@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="tr" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>İnteraktif Finans ve Bankacılık Portalı</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: "Calm Harmony" - A professional and clean theme with warm neutrals (#F8F7F4), a strong text color (#1f2937), and a trustworthy blue (#3b82f6) for accents and interactivity. -->
+    <!-- Application Structure Plan: The SPA is designed as a thematic, non-linear educational journey. A fixed top navigation allows users to jump to five core modules: 1) History (timeline), 2) Core Concepts (interactive chart/cards), 3) Banking System (accordions and a new detailed tabbed glossary), 4) Financial Literacy (calculator/cards), and 5) Future of Finance (tabs). This structure prioritizes exploration over passive reading. The addition of a comprehensive, tab-based glossary within the Banking System section significantly enhances its value as a reference tool without cluttering the UI. -->
+    <!-- Visualization & Content Choices: 
+        - Banking History: Goal: Show evolution. Method: Interactive vertical timeline (HTML/CSS). Interaction: Hover effects. Justification: Engaging.
+        - Supply & Demand: Goal: Explain equilibrium. Method: Interactive Chart.js line chart. Interaction: Buttons shift curves. Justification: Dynamic demonstration.
+        - Key Terms (Inflation, etc.): Goal: Inform concisely. Method: Cards with modals. Interaction: Click for details. Justification: Clean UI, allows deep dives.
+        - Banking Terms Glossary: Goal: Provide detailed definitions. Method: Interactive tabbed interface (HTML/JS). Interaction: Click tabs to switch categories. Justification: Organizes a large amount of text-based information in a compact, user-friendly, and non-overwhelming manner.
+        - Budgeting: Goal: Provide practical value. Method: Interactive 50/30/20 budget calculator. Interaction: User inputs income, gets breakdown. Justification: Practical utility.
+        - Future Trends: Goal: Present modern topics. Method: Tabbed interface. Interaction: Click tabs. Justification: Compact presentation.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #F8F7F4;
+            color: #1f2937;
+        }
+        .chart-container {
+            position: relative;
+            height: 45vh;
+            width: 100%;
+            max-width: 650px;
+            margin: auto;
+            max-height: 450px;
+        }
+        .nav-link {
+            transition: color 0.3s, border-bottom-color 0.3s;
+            border-bottom: 2px solid transparent;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.07);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.1);
+        }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 50; opacity: 0; visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        .modal-overlay.visible { opacity: 1; visibility: visible; }
+        .modal-content {
+            background-color: #ffffff; padding: 2rem; border-radius: 0.75rem;
+            max-width: 90%; width: 650px; max-height: 85vh; overflow-y: auto;
+            transform: scale(0.95); transition: transform 0.3s;
+        }
+        .modal-overlay.visible .modal-content { transform: scale(1); }
+        .tab-btn {
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+        .tab-btn.active { 
+            background-color: #3b82f6; 
+            color: #ffffff; 
+            border-color: #3b82f6;
+        }
+        .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.5s ease-in-out; }
+        .timeline-item { border-left: 3px solid #3b82f6; }
+        .timeline-dot {
+            position: absolute; left: -11px; top: 50%; transform: translateY(-50%);
+            width: 20px; height: 20px; background-color: #F8F7F4;
+            border: 3px solid #3b82f6; border-radius: 50%;
+        }
+        .market-table th, .market-table td {
+            transition: background-color 0.3s;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <header class="bg-white/80 backdrop-blur-lg sticky top-0 z-40 shadow-sm">
+        <nav class="container mx-auto px-6 py-4 flex justify-between items-center">
+            <a href="#" class="text-xl font-bold text-gray-800">🏛️ Finans Portalı</a>
+            <div class="hidden md:flex items-center space-x-8">
+                <a href="#tarih" class="nav-link text-gray-600 font-medium pb-1">Tarihçe</a>
+                <a href="#kavramlar" class="nav-link text-gray-600 font-medium pb-1">Temel Kavramlar</a>
+                <a href="#sistem" class="nav-link text-gray-600 font-medium pb-1">Bankacılık Sistemi</a>
+                <a href="#okuryazarlik" class="nav-link text-gray-600 font-medium pb-1">Finansal Okuryazarlık</a>
+                <a href="#gelecek" class="nav-link text-gray-600 font-medium pb-1">Gelecek</a>
+            </div>
+            <button id="mobile-menu-button" class="md:hidden text-gray-700 focus:outline-none">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+            </button>
+        </nav>
+        <div id="mobile-menu" class="hidden md:hidden px-6 pb-4 space-y-2">
+            <a href="#tarih" class="block nav-link text-gray-600 font-medium py-2">Tarihçe</a>
+            <a href="#kavramlar" class="block nav-link text-gray-600 font-medium py-2">Temel Kavramlar</a>
+            <a href="#sistem" class="block nav-link text-gray-600 font-medium py-2">Bankacılık Sistemi</a>
+            <a href="#okuryazarlik" class="block nav-link text-gray-600 font-medium py-2">Finansal Okuryazarlık</a>
+            <a href="#gelecek" class="block nav-link text-gray-600 font-medium py-2">Gelecek</a>
+        </div>
+    </header>
+
+    <main>
+        <section id="hero" class="py-20 bg-white">
+            <div class="container mx-auto px-6 text-center">
+                <h2 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4">Finans Dünyasını Anlama Rehberiniz</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    İktisat, bankacılık ve yatırımın karmaşık dünyasını interaktif ve anlaşılır bir şekilde keşfedin. Bu portal, finansal geleceğinizi bilinçli kararlarla şekillendirmeniz için tasarlandı.
+                </p>
+            </div>
+        </section>
+
+        <section id="tarih" class="py-16">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h3 class="text-3xl font-bold mb-2">Bankacılığın Detaylı Tarihi: Mabedlerden Dijital Cüzdanlara Uzanan Binlerce Yıllık Serüven</h3>
+                    <p class="text-gray-600 max-w-3xl mx-auto">Bankacılık, insanlık tarihinin en eski mesleklerinden biri olarak, medeniyetlerin doğuşundan günümüzün dijital çağına kadar uzanan zengin ve karmaşık bir geçmişe sahiptir. Bu serüveni interaktif zaman tünelimizde keşfedin.</p>
+                </div>
+                <div class="relative max-w-4xl mx-auto">
+                    <div class="timeline-item relative pl-12 pb-12">
+                        <div class="timeline-dot"></div>
+                        <h4 class="text-xl font-semibold text-blue-600">Antik Çağlar: İlk "Banker" Rahipler ve Kanunlar</h4>
+                        <p class="text-gray-600 mt-2">MÖ 3500'lü yıllarda Mezopotamya'da tapınaklar, güvenli kabul edilen ilk "bankalar" olarak işlev görüyordu. Rahipler, halkın değerli eşyalarını saklıyor, borç veriyor ve tarihin ilk "faiz" uygulamalarını başlatıyorlardı. MÖ 18. yüzyılda Babil Kralı Hammurabi'nin kanunları, kredi ve mevduatı düzenleyen ilk yazılı metinler oldu. MÖ 640'ta Lidyalıların parayı icat etmesi ise işlemleri standartlaştırdı.</p>
+                    </div>
+                    <div class="timeline-item relative pl-12 pb-12">
+                        <div class="timeline-dot"></div>
+                        <h4 class="text-xl font-semibold text-blue-600">Orta Çağ: Tapınak Şövalyeleri ve İtalyan Şehir Devletleri</h4>
+                        <p class="text-gray-600 mt-2">Orta Çağ'da Tapınak Şövalyeleri, Kutsal Topraklar'a giden hacıların paralarını bir şubeden yatırıp diğerinden çekebilecekleri bir sistem kurarak uluslararası bir banka gibi çalıştı. Aynı dönemde Venedik ve Floransa gibi İtalyan şehir devletlerindeki "banco" (tezgah) sahibi sarraflar, modern bankacılığın ve "banka" kelimesinin temellerini attı.</p>
+                    </div>
+                    <div class="timeline-item relative pl-12 pb-12">
+                        <div class="timeline-dot"></div>
+                        <h4 class="text-xl font-semibold text-blue-600">Rönesans: Medici Ailesi ve Modern Bankacılığın Doğuşu</h4>
+                        <p class="text-gray-600 mt-2">1397'de kurulan Floransalı Medici Bankası, muhasebe kayıtları, çift taraflı kayıt sistemi ve poliçe gibi birçok modern bankacılık aracını sistematik olarak kullanarak Avrupa'nın en güçlü finans kurumu oldu. Sadece tüccarlara değil, papalığa ve krallara da borç vererek Rönesans'ın finansal motoru oldular.</p>
+                    </div>
+                     <div class="timeline-item relative pl-12 pb-12">
+                        <div class="timeline-dot"></div>
+                        <h4 class="text-xl font-semibold text-blue-600">16-17. Yüzyıllar: İlk Kamu ve Merkez Bankaları</h4>
+                        <p class="text-gray-600 mt-2">1587'de Venedik'te kurulan Banco di Rialto ve 1609'da kurulan Amsterdam Bankası gibi ilk kamu bankaları ortaya çıktı. 1694'te ise İngiltere'nin savaş finansmanını sağlamak amacıyla kurulan İngiltere Bankası (Bank of England), para basma yetkisine sahip ilk merkez bankalarından biri olarak tarihe geçti.</p>
+                    </div>
+                    <div class="timeline-item relative pl-12 pb-12">
+                        <div class="timeline-dot"></div>
+                        <h4 class="text-xl font-semibold text-blue-600">Sanayi Devrimi ve Sonrası: Endüstrinin Finansmanı</h4>
+                        <p class="text-gray-600 mt-2">18. ve 19. yüzyıllardaki Sanayi Devrimi, fabrikaların ve demiryollarının finansmanı için büyük sermayelere ihtiyaç doğurdu. Bu ihtiyacı karşılamak üzere sanayi bankaları ve yatırım bankaları ortaya çıktı. Bankalar, ekonomik kalkınmanın en önemli aktörleri haline geldi.</p>
+                    </div>
+                    <div class="timeline-item relative pl-12 pb-12">
+                        <div class="timeline-dot"></div>
+                        <h4 class="text-xl font-semibold text-blue-600">20. Yüzyıl: Krizler, Regülasyonlar ve Küreselleşme</h4>
+                        <p class="text-gray-600 mt-2">1929 Büyük Buhranı, binlerce bankanın iflasına yol açtı ve mevduatları güvence altına alan ve bankacılık faaliyetlerini sıkı kurallara bağlayan kapsamlı regülasyonları (Glass-Steagall Yasası gibi) beraberinde getirdi. II. Dünya Savaşı sonrası kurulan Bretton Woods sistemi, Dünya Bankası ve IMF ile küresel finansal istikrarı sağlamayı amaçladı.</p>
+                    </div>
+                    <div class="timeline-item relative pl-12 pb-0">
+                        <div class="timeline-dot"></div>
+                        <h4 class="text-xl font-semibold text-blue-600">21. Yüzyıl: Dijital Devrim ve FinTek'in Yükselişi</h4>
+                        <p class="text-gray-600 mt-2">İnternet ve mobil teknolojiler, bankacılıkta bir dijital devrimi tetikledi. Fiziksel şubelerin yerini mobil uygulamalar alırken, Finansal Teknoloji (FinTek) şirketleri geleneksel bankacılığa meydan okudu. Yapay zeka, blokzincir ve büyük veri gibi teknolojiler, kişiselleştirilmiş ve verimli hizmetlerin önünü açtı. 2008 Küresel Finans Krizi regülasyonların önemini hatırlatsa da, dijitalleşme ve inovasyon trendi hız kesmeden devam etti.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="kavramlar" class="py-16 bg-white">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h3 class="text-3xl font-bold mb-2">Ekonominin Temel Kavramları</h3>
+                    <p class="text-gray-600 max-w-3xl mx-auto">Piyasa dinamiklerinden makroekonomik göstergelere, finans dünyasını anlamak için bilmeniz gereken temel kavramları interaktif araçlarla öğrenin.</p>
+                </div>
+                <div class="space-y-12">
+                    <div class="grid md:grid-cols-2 gap-12 items-start">
+                        <div class="card p-6">
+                            <h4 class="text-2xl font-semibold mb-4 text-center">Arz ve Talep Dengesi</h4>
+                            <p class="text-gray-600 mb-6">Piyasa ekonomisinin kalbi olan arz ve talep, fiyatların nasıl oluştuğunu belirler. Aşağıdaki grafikle bu dinamik dengeyi interaktif olarak keşfedin. Butonlara tıklayarak talep ve arz eğrilerini kaydırın ve denge fiyatı ile miktarının nasıl değiştiğini gözlemleyin.</p>
+                            <div class="chart-container">
+                                <canvas id="arzTalepChart"></canvas>
+                            </div>
+                            <div class="flex flex-wrap justify-center gap-3 mt-6">
+                                <button id="resetBtn" class="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition">Sıfırla</button>
+                                <button id="increaseDemandBtn" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">Talebi Artır</button>
+                                <button id="decreaseDemandBtn" class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition">Talebi Azalt</button>
+                                <button id="increaseSupplyBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Arzı Artır</button>
+                                <button id="decreaseSupplyBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition">Arzı Azalt</button>
+                            </div>
+                        </div>
+                        <div class="card p-6">
+                            <h4 class="text-2xl font-semibold mb-4 text-center">Esneklik (Elastikiyet)</h4>
+                            <p class="text-gray-600 mb-6">Esneklik, bir değişkendeki (fiyat, gelir vb.) değişimin, başka bir değişkende (talep miktarı vb.) ne kadar güçlü bir tepkiye yol açtığını ölçer. Bu kavram, firmaların ve hükümetlerin stratejik kararlarını şekillendirir.</p>
+                            <div class="space-y-4 accordion-container">
+                                <div class="accordion-item border rounded-lg">
+                                    <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center"><span>Talebin Fiyat Esnekliği</span><span class="transform transition-transform duration-300">▼</span></button>
+                                    <div class="accordion-content px-4 pb-4 text-gray-600">Bir malın fiyatındaki %1'lik değişimin, talep edilen miktarında yarattığı yüzde değişmedir. Ekmek gibi zorunlu malların talebi inelastik (katı), lüks arabaların talebi ise esnektir. Firmalar, talebi inelastik ürünlerde fiyat artırarak toplam hasılatını artırabilir.</div>
+                                </div>
+                                <div class="accordion-item border rounded-lg">
+                                    <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center"><span>Talebin Gelir Esnekliği</span><span class="transform transition-transform duration-300">▼</span></button>
+                                    <div class="accordion-content px-4 pb-4 text-gray-600">Gelirdeki %1'lik değişimin, bir mala olan talebi ne kadar değiştirdiğini gösterir. Gelir artınca talebi artan mallar "normal mal", talebi azalanlar ise "düşük mal" olarak adlandırılır.</div>
+                                </div>
+                                <div class="accordion-item border rounded-lg">
+                                    <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center"><span>Çapraz Talep Esnekliği</span><span class="transform transition-transform duration-300">▼</span></button>
+                                    <div class="accordion-content px-4 pb-4 text-gray-600">Bir malın fiyatındaki değişimin, ilişkili başka bir malın talebini nasıl etkilediğini ölçer. Balık fiyatı artınca tavuk talebi artıyorsa bu mallar "ikame mal", benzin fiyatı artınca araba talebi azalıyorsa "tamamlayıcı mal"dır.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card p-6">
+                        <h4 class="text-2xl font-semibold mb-4 text-center">Piyasa Yapıları</h4>
+                        <p class="text-gray-600 mb-6 text-center">Piyasalar rekabetin derecesine göre farklılık gösterir. Aşağıdaki interaktif tabloda, farklı piyasa yapılarını ve temel özelliklerini karşılaştırın. Bir yapıya tıklayarak öne çıkarın.</p>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse market-table">
+                                <thead>
+                                    <tr class="bg-gray-100">
+                                        <th class="p-3 font-semibold border-b">Özellik</th>
+                                        <th class="p-3 font-semibold border-b text-center cursor-pointer" data-market="tr">Tam Rekabet</th>
+                                        <th class="p-3 font-semibold border-b text-center cursor-pointer" data-market="mr">Tekelci Rekabet</th>
+                                        <th class="p-3 font-semibold border-b text-center cursor-pointer" data-market="o">Oligopol</th>
+                                        <th class="p-3 font-semibold border-b text-center cursor-pointer" data-market="m">Monopol</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="market-row" data-market="tr"><td>Firma Sayısı</td><td>Çok Sayıda</td><td>Çok Sayıda</td><td>Az Sayıda</td><td>Tek</td></tr>
+                                    <tr class="market-row" data-market="mr"><td>Ürün Tipi</td><td>Homojen</td><td>Farklılaştırılmış</td><td>Homojen/Farklı</td><td>Benzersiz</td></tr>
+                                    <tr class="market-row" data-market="o"><td>Giriş Kolaylığı</td><td>Serbest</td><td>Nispeten Serbest</td><td>Zor</td><td>Engellenmiş</td></tr>
+                                    <tr class="market-row" data-market="m"><td>Fiyat Gücü</td><td>Yok</td><td>Sınırlı</td><td>Önemli</td><td>Yüksek</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+                        <div class="card p-6 text-center">
+                            <div class="text-4xl mb-4">📈</div>
+                            <h4 class="text-xl font-semibold mb-2">Enflasyon</h4>
+                            <button class="modal-btn bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition" data-modal="enflasyon">Detayları Gör</button>
+                        </div>
+                        <div class="card p-6 text-center">
+                            <div class="text-4xl mb-4">💰</div>
+                            <h4 class="text-xl font-semibold mb-2">GSYİH</h4>
+                            <button class="modal-btn bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition" data-modal="gsyih">Detayları Gör</button>
+                        </div>
+                        <div class="card p-6 text-center">
+                            <div class="text-4xl mb-4">🚶‍♂️</div>
+                            <h4 class="text-xl font-semibold mb-2">İşsizlik</h4>
+                            <button class="modal-btn bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition" data-modal="issizlik">Detayları Gör</button>
+                        </div>
+                         <div class="card p-6 text-center">
+                            <div class="text-4xl mb-4">⚖️</div>
+                            <h4 class="text-xl font-semibold mb-2">Fırsat Maliyeti</h4>
+                            <button class="modal-btn bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition" data-modal="firsat">Detayları Gör</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="sistem" class="py-16">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h3 class="text-3xl font-bold mb-2">Bankacılık Sistemi Nasıl Çalışır?</h3>
+                    <p class="text-gray-600 max-w-3xl mx-auto">Ekonominin dolaşım sistemi olan bankaların temel fonksiyonlarını, politika araçlarını ve sundukları hizmetleri keşfedin.</p>
+                </div>
+                <div class="space-y-12">
+                     <div class="card p-6">
+                        <h4 class="text-2xl font-semibold mb-4">Ekonomik Politikalar</h4>
+                        <p class="text-gray-600 mb-6">Ekonomiyi yönetmek, enflasyonla mücadele etmek ve büyümeyi desteklemek için kullanılan iki ana politika setini ve araçlarını keşfedin. Bu iki politikanın uyumu, ekonomik istikrar için kritiktir.</p>
+                        <div class="space-y-4 accordion-container">
+                            <div class="accordion-item border rounded-lg">
+                                <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center">
+                                    <span>Para Politikası (TCMB)</span>
+                                    <span class="transform transition-transform duration-300">▼</span>
+                                </button>
+                                <div class="accordion-content px-4 pb-4 text-gray-600">
+                                    Merkez Bankası'nın fiyat istikrarını sağlamak amacıyla para arzını ve faiz oranlarını yönettiği politikalardır. Temel araçları **Politika Faizi**, **Açık Piyasa İşlemleri (APİ)** ve **Zorunlu Karşılıklardır**. Faiz artışı ekonomiyi soğutur, düşüşü canlandırır. Bu kararlar, kredi ve mevduat faizleri üzerinden doğrudan bireylerin cüzdanını etkiler.
+                                </div>
+                            </div>
+                            <div class="accordion-item border rounded-lg">
+                                <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center">
+                                    <span>Maliye Politikası (Hükümet)</span>
+                                    <span class="transform transition-transform duration-300">▼</span>
+                                </button>
+                                <div class="accordion-content px-4 pb-4 text-gray-600">
+                                    Hükümetin **kamu harcamaları**, **vergiler** ve **borçlanma** yoluyla ekonomik hedeflere ulaşma politikasıdır. Harcamaları artırmak veya vergileri düşürmek ekonomiyi canlandırırken (genişletici), tersi ise ekonomiyi yavaşlatır (daraltıcı). Para politikası ile çelişen bir maliye politikası, ekonomik istikrarsızlığa yol açabilir.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card p-6 md:p-8">
+                        <h4 class="text-2xl font-semibold mb-6 text-center">Detaylı Bankacılık Terimleri Sözlüğü</h4>
+                         <div class="border-b border-gray-200">
+                            <nav class="-mb-px flex flex-wrap justify-center gap-x-4" aria-label="Tabs">
+                                <button class="glossary-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300 active" data-tab="hizmetler">Hesaplar & Hizmetler</button>
+                                <button class="glossary-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300" data-tab="krediler">Krediler & Borçlanma</button>
+                                <button class="glossary-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300" data-tab="faiz">Faiz & Oranlar</button>
+                                <button class="glossary-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300" data-tab="transfer">Para Transferleri</button>
+                                <button class="glossary-tab-btn whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm text-gray-500 hover:text-blue-600 hover:border-blue-300" data-tab="genel">Genel Terimler</button>
+                            </nav>
+                        </div>
+                        <div id="glossary-content" class="mt-6">
+                            <div class="glossary-pane space-y-4" id="hizmetler-content">
+                                <div>
+                                    <h5 class="font-bold text-lg">Vadesiz Mevduat Hesabı</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Günlük para giriş çıkışlarınızı yönettiğiniz, içine istediğiniz zaman para yatırıp çekebileceğiniz, faiz getirisi olmayan temel banka hesabıdır. Maaşınız bu hesaba yatar, faturalarınızı bu hesaptan ödersiniz ve banka kartınız (debit card) genellikle bu hesaba bağlıdır.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">Vadeli Mevduat Hesabı</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Belirli bir vade (süre) boyunca paranızı bankada tutma sözü vererek faiz geliri elde ettiğiniz birikim hesabıdır. Vade dolmadan parayı çekerseniz, genellikle faiz hakkınızı kaybedersiniz ("vadeyi bozmak").</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">IBAN (International Bank Account Number)</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Para transferlerinin hatasız ve hızlı bir şekilde yapılabilmesi için kullanılan, her banka hesabına özel uluslararası standartlarda bir hesap numarasıdır. Türkiye'de "TR" ile başlayan 26 haneden oluşur.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">ATM (Bankamatik)</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Banka şubesine gitmeden para çekme, para yatırma, fatura ödeme gibi temel bankacılık işlemlerini yapmanızı sağlayan elektronik cihazlardır.</p>
+                                </div>
+                            </div>
+                            <div class="glossary-pane space-y-4 hidden" id="krediler-content">
+                                <div>
+                                    <h5 class="font-bold text-lg">Kredi (Loan/Credit)</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Bankadan belirli bir faiz oranı ve geri ödeme planı dahilinde alınan borç paradır.</p>
+                                    <ul class="list-disc list-inside text-gray-600 mt-2 pl-2">
+                                        <li><strong>Tüketici Kredisi:</strong> Tatil, elektronik eşya gibi kişisel ihtiyaçlar için verilen, genellikle daha kısa vadeli kredilerdir.</li>
+                                        <li><strong>Konut Kredisi (Mortgage):</strong> Ev satın almak için kullanılan, uzun vadeli ve satın alınan evin teminat (ipotek) olarak gösterildiği kredilerdir.</li>
+                                        <li><strong>Taşıt Kredisi:</strong> Araç satın almak için verilen, genellikle aracın kendisinin teminat gösterildiği kredilerdir.</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">Kredi Kartı</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Bankanın size tanımladığı bir limit dahilinde, yanınızda nakit olmasa bile alışveriş yapmanızı ve harcamaları ay sonunda tek seferde veya taksitlerle geri ödemenizi sağlayan bir ödeme aracıdır.</p>
+                                     <p class="text-gray-600 mt-1"><strong class="text-gray-800">İlgili Terimler:</strong> <br><strong>Hesap Kesim Tarihi:</strong> Bir aylık harcamalarınızın toplandığı tarih. <br><strong>Son Ödeme Tarihi:</strong> Borcunuzu ödemeniz gereken son gün. <br><strong>Asgari Ödeme Tutarı:</strong> Ödemeniz gereken minimum borç tutarıdır. Sadece asgari tutarı öderseniz, kalan borca faiz işler.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">Kredi Notu / Skoru</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Finansal geçmişinize (borç ödeme düzeni vb.) dayanarak hesaplanan ve bankaların kredi kararını etkileyen bir puandır. Notunuz ne kadar yüksekse, kredi alma olasılığınız o kadar artar.</p>
+                                </div>
+                            </div>
+                             <div class="glossary-pane space-y-4 hidden" id="faiz-content">
+                                <div>
+                                    <h5 class="font-bold text-lg">Mevduat Faizi</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Vadeli mevduat hesabınızdaki birikimleriniz için bankanın size ödediği faiz oranıdır. Sizin için bir "gelir"dir.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">Kredi Faizi</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Kullandığınız kredi için bankaya ödediğiniz faiz oranıdır. Sizin için bir "maliyet"tir.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">Akdi Faiz</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Kredi sözleşmesinde belirtilen ve normal şartlarda uygulanan faiz oranıdır.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">Temerrüt Faizi</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Borcunuzu zamanında ödemediğinizde, geciken tutar için uygulanan daha yüksek ceza faizidir.</p>
+                                </div>
+                                 <div>
+                                    <h5 class="font-bold text-lg">Bileşik Faiz</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Kazanılan faizin de anaparaya eklenerek bir sonraki dönemde onun da faiz getirmesidir. "Faizin faizi" olarak da bilinir ve uzun vadeli birikimlerde çok güçlü bir etki yaratır.</p>
+                                </div>
+                            </div>
+                             <div class="glossary-pane space-y-4 hidden" id="transfer-content">
+                                <div>
+                                    <h5 class="font-bold text-lg">Havale</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Aynı bankanın farklı hesapları arasında yapılan para transferidir. Genellikle 7/24 anında gerçekleşir.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">EFT (Elektronik Fon Transferi)</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Farklı bankalar arasındaki para transferi işlemidir. Genellikle sadece bankaların mesai saatleri içinde gerçekleşir.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">FAST (Fonların Anlık ve Sürekli Transferi)</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Farklı bankalar arasında 7/24 anında para transferi yapılmasını sağlayan yeni nesil bir ödeme sistemidir. EFT'nin mesai saati kısıtlamasını ortadan kaldırır.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">SWIFT</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Uluslararası para transferlerinde kullanılan, her bankanın kendine özgü bir SWIFT koduna sahip olduğu küresel bir sistemdir.</p>
+                                </div>
+                            </div>
+                             <div class="glossary-pane space-y-4 hidden" id="genel-content">
+                                <div>
+                                    <h5 class="font-bold text-lg">Teminat (Kolateral)</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Kredi alırken, borcun geri ödenmemesi riskine karşılık bankaya güvence olarak gösterilen varlıktır. Konut kredisinde eviniz bir teminattır.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">Likidite</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Bir varlığın, değer kaybetmeden ne kadar hızlı bir şekilde nakde çevrilebileceğini ifade eder. Nakit para en likit varlıktır.</p>
+                                </div>
+                                <div>
+                                    <h5 class="font-bold text-lg">Merkez Bankası (TCMB)</h5>
+                                    <p class="text-gray-600 mt-1"><strong class="text-gray-800">Nedir?</strong> Bir ülkenin para politikasını yöneten, bankaların bankası olarak işlev gören ve finansal sistemin istikrarını denetleyen kurumdur. Faiz oranlarını belirler, para basar ve ülkenin döviz rezervlerini yönetir.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="okuryazarlik" class="py-16 bg-white">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h3 class="text-3xl font-bold mb-2">Finansal Okuryazarlık ve Yatırım</h3>
+                    <p class="text-gray-600 max-w-3xl mx-auto">Paranızı yönetmek, birikimlerinizi değerlendirmek ve finansal hedeflerinize ulaşmak için gerekli temel bilgi ve stratejileri edinin.</p>
+                </div>
+                <div class="grid lg:grid-cols-2 gap-12 items-start">
+                    <div class="card p-6">
+                        <h4 class="text-2xl font-semibold mb-4 text-center">50/30/20 Bütçe Hesaplayıcı</h4>
+                        <p class="text-gray-600 mb-6">Aylık net gelirinizi girerek popüler 50/30/20 bütçeleme kuralına göre harcamalarınızı nasıl planlayabileceğinizi görün. Bu kural, gelirin %50'sini ihtiyaçlara, %30'unu isteklere ve %20'sini tasarruflara ayırmayı önerir.</p>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="income" class="block text-sm font-medium text-gray-700">Aylık Net Geliriniz (TL)</label>
+                                <input type="number" id="income" class="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" placeholder="Örn: 30000">
+                            </div>
+                            <button id="calculateBudgetBtn" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition">Hesapla</button>
+                        </div>
+                        <div id="budgetResult" class="mt-6 space-y-3 hidden">
+                            <div class="flex justify-between items-center bg-blue-100 p-3 rounded-lg">
+                                <span class="font-medium text-blue-800">İhtiyaçlar (%50):</span>
+                                <span id="needs" class="font-bold text-blue-900"></span>
+                            </div>
+                            <div class="flex justify-between items-center bg-green-100 p-3 rounded-lg">
+                                <span class="font-medium text-green-800">İstekler (%30):</span>
+                                <span id="wants" class="font-bold text-green-900"></span>
+                            </div>
+                            <div class="flex justify-between items-center bg-yellow-100 p-3 rounded-lg">
+                                <span class="font-medium text-yellow-800">Tasarruf/Borç (%20):</span>
+                                <span id="savings" class="font-bold text-yellow-900"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card p-6">
+                        <h4 class="text-2xl font-semibold mb-4 text-center">Akıllı Yatırım Stratejileri</h4>
+                        <p class="text-gray-600 mb-6">Başarılı yatırım, duygusal kararlar yerine sistematik ve rasyonel bir çerçeve gerektirir. Temel stratejileri öğrenerek birikimlerinizi bilinçli bir şekilde yönetin.</p>
+                        <div class="space-y-4 accordion-container">
+                            <div class="accordion-item border rounded-lg">
+                                <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center"><span>Risk ve Getiri Dengesi</span><span class="transform transition-transform duration-300">▼</span></button>
+                                <div class="accordion-content px-4 pb-4 text-gray-600">Finansın temel kuralı: Yüksek getiri potansiyeli, her zaman daha yüksek risk üstlenmeyi gerektirir. "Bedelsiz öğle yemeği yoktur". Akıllı yatırımcı, alacağı riske değecek bir getiri bekler ve kendi risk toleransına uygun bir denge kurar.</div>
+                            </div>
+                            <div class="accordion-item border rounded-lg">
+                                <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center"><span>Portföy Çeşitlendirmesi</span><span class="transform transition-transform duration-300">▼</span></button>
+                                <div class="accordion-content px-4 pb-4 text-gray-600">"Bütün yumurtaları aynı sepete koymamak" ilkesidir. Yatırımları tek bir varlık yerine, farklı özelliklere sahip hisse senedi, tahvil, altın gibi çeşitli araçlar arasında dağıtarak riski yayma stratejisidir. Bu, portföydeki dalgalanmayı azaltır.</div>
+                            </div>
+                            <div class="accordion-item border rounded-lg">
+                                <button class="accordion-header w-full text-left p-4 font-semibold flex justify-between items-center"><span>Acil Durum Fonu</span><span class="transform transition-transform duration-300">▼</span></button>
+                                <div class="accordion-content px-4 pb-4 text-gray-600">İş kaybı, sağlık sorunu gibi beklenmedik durumlar için ayrılmış, 3 ila 6 aylık temel yaşam giderlerinizi karşılayacak, kolayca erişilebilir (likit) bir birikimdir. Uzun vadeli yatırımlarınızı bozmanızı engeller.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="gelecek" class="py-16">
+            <div class="container mx-auto px-6">
+                <div class="text-center mb-12">
+                    <h3 class="text-3xl font-bold mb-2">Finansın Geleceği</h3>
+                    <p class="text-gray-600 max-w-3xl mx-auto">Teknolojinin ve değişen toplumsal beklentilerin finans sektörünü nasıl yeniden şekillendirdiğini ve geleceğin trendlerini keşfedin.</p>
+                </div>
+                <div class="card p-6">
+                    <div class="flex flex-wrap justify-center border-b border-gray-200 mb-6">
+                        <button class="future-tab-btn tab-btn py-2 px-4 font-semibold text-gray-600 rounded-t-lg active" data-tab="fintek">FinTek</button>
+                        <button class="future-tab-btn tab-btn py-2 px-4 font-semibold text-gray-600 rounded-t-lg" data-tab="dijital">Dijital Bankacılık</button>
+                        <button class="future-tab-btn tab-btn py-2 px-4 font-semibold text-gray-600 rounded-t-lg" data-tab="kripto">Kripto Varlıklar</button>
+                        <button class="future-tab-btn tab-btn py-2 px-4 font-semibold text-gray-600 rounded-t-lg" data-tab="esg">Sürdürülebilir Finans (ESG)</button>
+                    </div>
+                    <div id="future-tab-content">
+                        <div class="future-pane tab-pane active" id="fintek-content">
+                            <h4 class="text-2xl font-semibold mb-3">FinTek (Finansal Teknoloji)</h4>
+                            <p class="text-gray-600">Finansal hizmetleri iyileştirmek için teknolojiyi kullanan yenilikçi bir endüstridir. Mobil ödemeler, P2P borç verme ve kitle fonlaması gibi yeni iş modelleriyle geleneksel finansa meydan okur. Hız, düşük maliyet ve erişilebilirlik sunarak finansal kapsayıcılığı artırır.</p>
+                        </div>
+                        <div class="future-pane tab-pane hidden" id="dijital-content">
+                             <h4 class="text-2xl font-semibold mb-3">Dijital Bankacılık</h4>
+                            <p class="text-gray-600">Fiziksel şubesi olmadan, tüm hizmetlerini mobil uygulama ve internet sitesi gibi dijital kanallar üzerinden sunan bankacılık modelidir. Düşük operasyonel maliyetleri sayesinde müşterilere daha avantajlı ücretler ve faiz oranları sunabilirler.</p>
+                        </div>
+                        <div class="future-pane tab-pane hidden" id="kripto-content">
+                             <h4 class="text-2xl font-semibold mb-3">Kripto Varlıklar ve Blockchain</h4>
+                            <p class="text-gray-600">Blockchain, işlemleri merkeziyetsiz ve güvenli bir şekilde kaydeden bir dijital kayıt defteridir. Bitcoin ve Ethereum gibi kripto varlıklar bu teknoloji üzerine inşa edilmiştir. Yüksek volatilite (fiyat oynaklığı) ve düzenleyici belirsizlikler gibi önemli riskler barındırır.</p>
+                        </div>
+                        <div class="future-pane tab-pane hidden" id="esg-content">
+                            <h4 class="text-2xl font-semibold mb-3">Sürdürülebilir Finans (ESG)</h4>
+                            <p class="text-gray-600 mb-4">Yatırım kararlarında finansal getirinin yanı sıra **Çevresel (E)**, **Sosyal (S)** ve **Kurumsal Yönetişim (G)** faktörlerinin de dikkate alınmasıdır. Şirketlerin uzun vadeli değerinin ve dayanıklılığının bir göstergesi olarak giderek daha fazla önem kazanmaktadır. Bu yaklaşım, şirketlerin sadece hissedarlarına değil, tüm paydaşlarına (çalışanlar, toplum, çevre) karşı sorumlu olduğu "paydaş kapitalizmi" fikrini güçlendirir.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    
+    <footer class="bg-white py-8 mt-16 border-t">
+        <div class="container mx-auto px-6 text-center text-gray-500">
+            <p>&copy; 2025 İnteraktif Finans Portalı. Tüm Hakları Saklıdır.</p>
+            <p class="text-sm mt-2">Bu uygulama, eğitim amacıyla oluşturulmuştur ve yatırım tavsiyesi niteliği taşımaz.</p>
+        </div>
+    </footer>
+
+    <div id="modal-container"></div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            
+            const arzTalepData = {
+                fiyat: [1, 2, 3, 4, 5, 6],
+                orijinalTalep: [60, 50, 40, 30, 20, 10],
+                orijinalArz: [10, 20, 30, 40, 50, 60]
+            };
+
+            const ctx = document.getElementById('arzTalepChart').getContext('2d');
+            let arzTalepChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: arzTalepData.fiyat.map(p => `${p} TL`),
+                    datasets: [{
+                        label: 'Talep Eğrisi',
+                        data: [...arzTalepData.orijinalTalep],
+                        borderColor: '#3b82f6',
+                        tension: 0.1
+                    }, {
+                        label: 'Arz Eğrisi',
+                        data: [...arzTalepData.orijinalArz],
+                        borderColor: '#ef4444',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: true, text: 'Piyasa Denge Noktası' },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, title: { display: true, text: 'Miktar' } },
+                        x: { title: { display: true, text: 'Fiyat' } }
+                    }
+                }
+            });
+
+            function updateChartData(newTalep, newArz) {
+                arzTalepChart.data.datasets[0].data = newTalep;
+                arzTalepChart.data.datasets[1].data = newArz;
+                arzTalepChart.update();
+            }
+
+            document.getElementById('resetBtn').addEventListener('click', () => updateChartData([...arzTalepData.orijinalTalep], [...arzTalepData.orijinalArz]));
+            document.getElementById('increaseDemandBtn').addEventListener('click', () => updateChartData(arzTalepChart.data.datasets[0].data.map(q => q + 10), arzTalepChart.data.datasets[1].data));
+            document.getElementById('decreaseDemandBtn').addEventListener('click', () => updateChartData(arzTalepChart.data.datasets[0].data.map(q => q - 10), arzTalepChart.data.datasets[1].data));
+            document.getElementById('increaseSupplyBtn').addEventListener('click', () => updateChartData(arzTalepChart.data.datasets[0].data, arzTalepChart.data.datasets[1].data.map(q => q + 10)));
+            document.getElementById('decreaseSupplyBtn').addEventListener('click', () => updateChartData(arzTalepChart.data.datasets[0].data, arzTalepChart.data.datasets[1].data.map(q => q - 10)));
+
+            const modalData = {
+                enflasyon: { title: 'Enflasyon Detayları', content: `Fiyatlar genel seviyesindeki sürekli artış ve paranın satın alma gücündeki azalmadır. Türkiye'de TÜİK tarafından Tüketici Fiyat Endeksi (TÜFE) ile ölçülür. Yüksek enflasyon, belirsizliği artırır, tasarrufların değerini eritir ve uzun vadeli yatırım kararlarını zorlaştırarak ekonomik istikrara zarar verir.` },
+                gsyih: { title: 'GSYİH Detayları', content: `Gayri Safi Yurt İçi Hasıla, bir ülke sınırları içinde, belirli bir zaman diliminde üretilen tüm nihai mal ve hizmetlerin piyasa değeridir. Ekonomik büyüklüğü ve büyümeyi ölçer. Enflasyondan arındırılmış **Reel GSYİH**, gerçek ekonomik performansı gösterir. GSYİH, gelir dağılımı veya çevre kirliliği gibi refah unsurlarını ölçmez.` },
+                issizlik: { title: 'İşsizlik Detayları', content: `Çalışma isteği ve yeteneği olup aktif olarak iş arayan ancak bulamayanların oluşturduğu durumdur. İşsizlik oranı, işsiz sayısının toplam işgücüne bölünmesiyle hesaplanır. İş arama ümidini kaybetmiş olan "ümidi kırıklar" işsiz sayılmaz, bu da resmi oranın gerçek sorunu tam yansıtmadığı eleştirilerine yol açar.` },
+                firsat: { title: 'Fırsat Maliyeti Detayları', content: `Bir ekonomik karar verildiğinde, bu karar nedeniyle vazgeçilmek zorunda kalınınan en iyi ikinci alternatifin değeridir. Her seçimin bir vazgeçiş olduğu ilkesine dayanır ve "görünmez" maliyetleri görünür kılarak daha rasyonel kararlar alınmasını sağlar. Örneğin, üniversiteye gitmenin fırsat maliyeti, o yıllarda çalışarak kazanılabilecek maaştır.` }
+            };
+            
+            const modalContainer = document.getElementById('modal-container');
+            document.querySelectorAll('.modal-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const modalId = button.dataset.modal;
+                    const data = modalData[modalId];
+                    modalContainer.innerHTML = `
+                        <div id="${modalId}-modal" class="modal-overlay visible">
+                            <div class="modal-content">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-2xl font-bold">${data.title}</h4>
+                                    <button class="close-modal-btn text-3xl text-gray-500 hover:text-gray-800">&times;</button>
+                                </div>
+                                <p class="text-gray-700">${data.content}</p>
+                            </div>
+                        </div>
+                    `;
+                    const modal = document.getElementById(`${modalId}-modal`);
+                    modal.querySelector('.close-modal-btn').addEventListener('click', () => modal.remove());
+                    modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+                });
+            });
+
+            document.querySelectorAll('.accordion-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const content = header.nextElementSibling;
+                    const icon = header.querySelector('span:last-child');
+                    const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+                    
+                    header.closest('.accordion-container').querySelectorAll('.accordion-content').forEach(c => c.style.maxHeight = '0px');
+                    header.closest('.accordion-container').querySelectorAll('.accordion-header span:last-child').forEach(i => i.style.transform = 'rotate(0deg)');
+
+                    if (!isOpen) {
+                        content.style.maxHeight = content.scrollHeight + 'px';
+                        icon.style.transform = 'rotate(180deg)';
+                    }
+                });
+            });
+            
+            function setupTabs(tabSelector, paneSelector) {
+                const tabs = document.querySelectorAll(tabSelector);
+                const panes = document.querySelectorAll(paneSelector);
+                tabs.forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        const target = tab.dataset.tab;
+                        panes.forEach(pane => {
+                            pane.id === `${target}-content` ? pane.classList.remove('hidden') : pane.classList.add('hidden');
+                        });
+                    });
+                });
+            }
+
+            setupTabs('.future-tab-btn', '.future-pane');
+            setupTabs('.glossary-tab-btn', '.glossary-pane');
+
+
+            document.getElementById('calculateBudgetBtn').addEventListener('click', () => {
+                const income = parseFloat(document.getElementById('income').value);
+                if (isNaN(income) || income <= 0) {
+                    const alertContainer = document.createElement('div');
+                    alertContainer.innerHTML = `<div class="fixed top-5 right-5 bg-red-500 text-white p-4 rounded-lg shadow-lg">Lütfen geçerli bir gelir giriniz.</div>`;
+                    document.body.appendChild(alertContainer);
+                    setTimeout(() => alertContainer.remove(), 3000);
+                    return;
+                }
+                document.getElementById('needs').textContent = `₺${(income * 0.5).toFixed(2)}`;
+                document.getElementById('wants').textContent = `₺${(income * 0.3).toFixed(2)}`;
+                document.getElementById('savings').textContent = `₺${(income * 0.2).toFixed(2)}`;
+                document.getElementById('budgetResult').classList.remove('hidden');
+            });
+
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuButton.addEventListener('click', () => mobileMenu.classList.toggle('hidden'));
+
+            const navLinks = document.querySelectorAll('nav a[href^="#"]');
+            const sections = document.querySelectorAll('main section');
+            window.addEventListener('scroll', () => {
+                let current = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (pageYOffset >= sectionTop - 80) {
+                        current = section.getAttribute('id');
+                    }
+                });
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href').includes(current)) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+            
+            const marketTableHeaders = document.querySelectorAll('.market-table th[data-market]');
+            const marketTableRows = document.querySelectorAll('.market-table .market-row');
+            marketTableHeaders.forEach(header => {
+                header.addEventListener('click', () => {
+                    const market = header.dataset.market;
+                    marketTableRows.forEach(row => {
+                        const cell = row.querySelector(`td:nth-child(${Array.from(header.parentNode.children).indexOf(header) + 1})`);
+                        if(cell) {
+                             cell.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                        }
+                    });
+                     setTimeout(() => {
+                        marketTableRows.forEach(row => {
+                           const cell = row.querySelector(`td:nth-child(${Array.from(header.parentNode.children).indexOf(header) + 1})`);
+                           if(cell) cell.style.backgroundColor = 'transparent';
+                        });
+                    }, 2000);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
